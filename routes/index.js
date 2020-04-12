@@ -47,6 +47,15 @@ router.get('/getMainCategoryProducts', async (req,res,next)=>{
         res.sendStatus(500)
     }
 })
+router.get('/getAllProducts', async (req,res,next)=>{ //admin-productList
+    try {
+        let results = await db.getAllProducts();
+        res.json(results);
+    } catch (error) {
+        console.log(e);
+        res.sendStatus(500)
+    }
+})
 
 router.get('/getItems', async (req,res,next)=>{
     console.log(req.query)

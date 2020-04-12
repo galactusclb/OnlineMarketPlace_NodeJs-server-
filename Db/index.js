@@ -50,6 +50,17 @@ grocerydb.getMainCategoryProducts = (category) =>{
 
 }
 
+grocerydb.getAllProducts = ()=>{
+    return new Promise (( resolve,results)=>{
+        pool.query('SELECT * FROM products ', (err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+
 grocerydb.getItems = (category) =>{
     return new Promise ((resolve, reject)=>{
         pool.query('SELECT * FROM products WHERE category = ?',[category] ,(err,results)=>{
