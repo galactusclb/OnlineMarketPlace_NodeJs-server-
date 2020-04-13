@@ -72,6 +72,15 @@ router.get('/getItems', async (req,res,next)=>{
         res.sendStatus(500)
     }
 })
+router.get('/getProductDetails', async (req,res,next)=>{
+      try {
+          let results = await db.getProductDetails(req.query.productId);
+          res.json(results);
+      } catch (error) {
+          console.log(e);
+          res.sendStatus(500)
+      }
+  })
 
 router.post('/addProduct', upload.single('image') , async ( req,res,next)=> {
     // console.log(req.file.filename)
@@ -106,6 +115,12 @@ router.post('/removeProductFromHome', async (req,res,next)=>{
         res.sendStatus(500)
     }
 } )
+
+router.post('/productsOrder', async (req, res,next)=>{
+    console.log(req.body)
+})
+
+
 
 router.post('/uploadProductImg', async (res,req,next)=>{
     console.log(res.file)

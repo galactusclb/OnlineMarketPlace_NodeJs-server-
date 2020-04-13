@@ -74,6 +74,16 @@ grocerydb.getItems = (category) =>{
         })
     })
 }
+grocerydb.getProductDetails = (id) =>{
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM products WHERE id = ?',[id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
 
 grocerydb.addProduct = (pCategory,pName,pPrice,pDiscount,pQty,pPic) =>{
     return new Promise ((resolve,reject)=>{
