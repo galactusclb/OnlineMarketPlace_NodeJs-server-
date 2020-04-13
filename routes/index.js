@@ -24,7 +24,11 @@ app.use(bodyParser.urlencoded({extended: false}));
 
 
 router.get('/uploads/products/:pic',(req,res)=>{
-    res.sendFile(path.join( __dirname ,'../img/products/'+ req.params.pic))
+    try {
+        res.sendFile(path.join( __dirname ,'../img/products/'+ req.params.pic))
+    } catch (error) {
+        console.log(error)
+    }
 })
 
 const storage = multer.diskStorage({
@@ -37,11 +41,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage})
 
 router.get('/getMainCategoryProducts', async (req,res,next)=>{
-    //console.log(req.query)
+    console.log(req.query)
     try {
         let results = await db.getMainCategoryProducts(req.query.category);
         res.json(results);
-        //console.log(results)
+        console.log(results)
     } catch (error) {
         console.log(e);
         res.sendStatus(500)
@@ -58,7 +62,7 @@ router.get('/getAllProducts', async (req,res,next)=>{ //admin-productList
 })
 
 router.get('/getItems', async (req,res,next)=>{
-    console.log(req.query)
+  //  console.log(req.query)
     try {
         let results = await db.getItems(req.query.category);
        // console.log(results)
@@ -82,6 +86,26 @@ router.post('/addProduct', upload.single('image') , async ( req,res,next)=> {
         res.sendStatus(500)
     }
 })
+router.post('/addMainCategoryProducts', async ( req,res,next)=> {
+    console.log(req.body)
+    try {
+        let results = await db.addMainCategoryProducts(req.body.pCategory,req.body.pId);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+})
+router.post('/removeProductFromHome', async (req,res,next)=>{
+    console.log(req.body.params.item)
+    try {
+        let results = await db.removeProductFromHome(req.body.params.item);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+} )
 
 router.post('/uploadProductImg', async (res,req,next)=>{
     console.log(res.file)

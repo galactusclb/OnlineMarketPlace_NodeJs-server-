@@ -34,6 +34,8 @@ grocerydb.getMainCategoryProducts = (category) =>{
         //     return resolve(list);
         // })
 
+        
+
         return new Promise ((resolve, reject)=>{
 
             // main_category_products
@@ -76,6 +78,26 @@ grocerydb.getItems = (category) =>{
 grocerydb.addProduct = (pCategory,pName,pPrice,pDiscount,pQty,pPic) =>{
     return new Promise ((resolve,reject)=>{
         pool.query('INSERT INTO products(name,price,discount,qty,category,pic) VALUES(?,?,?,?,?,?) ',[pName,pPrice,pDiscount,pQty,pCategory,pPic], (err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.addMainCategoryProducts = (pCategory,pId) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('INSERT INTO main_category_products(category,product_id) VALUES(?,?) ',[pCategory,pId], (err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.removeProductFromHome = (itemId) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('DELETE FROM main_category_products WHERE id = ?',[itemId], (err,results)=>{
             if (err) {
                 return reject(err);
             }
