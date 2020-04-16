@@ -117,7 +117,14 @@ router.post('/removeProductFromHome', async (req,res,next)=>{
 } )
 
 router.post('/productsOrder', async (req, res,next)=>{
-    console.log(req.body)
+    console.log(req.body.params)
+    try {
+        let results = await db.productsOrder(req.body.params.orders);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
 })
 
 

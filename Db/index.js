@@ -116,4 +116,50 @@ grocerydb.removeProductFromHome = (itemId) =>{
     })
 }
 
+grocerydb.productsOrder = (orders) =>{ // shopping-cart
+    return new Promise ((resolve,reject)=>{
+        pool.query('INSERT INTO orders( date) VALUES(?)',[''], (err,results)=>{
+            if (err) {
+                return reject(err)
+            }else{
+                function paddy(num, padlen, padchar) {
+                    var pad_char = typeof padchar !== 'undefined' ? padchar : '0';
+                    var pad = new Array(1 + padlen).join(pad_char);
+                    return (pad + num).slice(-pad.length);
+                }
+                const inserted_id = results.insertId;
+                var fu = paddy(inserted_id, 8);
+
+                const new_id = "OR-"+fu;
+
+                pool.query('UPDATE orders SET orderTrackId=?,totPrice=?,totItemsType=?,discount=?,time=?,status=? WHERE sid=?',[new_id,orders[0].cost,(orders.length-1),0,'19.52','pending',inserted_id], (err,results)=>{
+                    if (err) {
+                        return reject(err)
+                    }else{
+                        for (let i = 1; i < orders.length; i++) {
+                            const prod = orders[i]
+
+                            try {
+                                pool.query('INSERT INTO products_sold( trackId,productId,uid,amount,date,time,price,status) VALUES(?,?,?,?,?,?,?,?)',[new_id,prod.id,'chana',prod.Quantity,'','',prod.price,'pending'], (err,results)=>{
+                                    if (err) {
+                                        return reject(err);
+                                    }
+                                    return results;
+                                })
+                            } catch (error) {
+                                console.log(error)
+                            }
+                            
+                        }
+                        return resolve(results);
+                    }
+                })
+            }
+        })
+    }
+)}
+
+
+
+
 module.exports = grocerydb;
