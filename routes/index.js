@@ -3,6 +3,7 @@ const db = require('../Db/index')
 const bodyParser = require('body-parser');
 const multer = require('multer')
 const path = require('path'); 
+var async1 = require('async')
 // var upload = multer({ dest: 'uploads/' })
 
 const router = express.Router()
@@ -72,14 +73,34 @@ router.get('/getItems', async (req,res,next)=>{
         res.sendStatus(500)
     }
 })
-router.get('/getProductDetails', async (req,res,next)=>{
-      try {
-          let results = await db.getProductDetails(req.query.productId);
-          res.json(results);
-      } catch (error) {
-          console.log(e);
-          res.sendStatus(500)
-      }
+router.get('/getProductDetails', async (req,res,next)=>{ //product-view component
+      async1.parallel([
+        async function(callback){
+            try {
+                let results = await db.getProductDetailsById(req.query.productId);
+                return results
+            } catch (error) {
+                console.log(e);
+            }
+        }
+        ,async function(callback){
+            try {
+                let results = await db.getProductSoldById(req.query.productId);
+                return results 
+            } catch (error) {
+                console.log(error);
+                // res.sendStatus(500)
+            }
+        }
+    ],function(err,results){
+        if(err){
+            console.log(err)
+            res.json({"status": "failed", "message": "None" })
+        }else{
+            console.log(results)
+            res.send(results); //both result1 and result2 will be in results
+        }
+    })
   })
 
 router.post('/addProduct', upload.single('image') , async ( req,res,next)=> {
@@ -89,6 +110,18 @@ router.post('/addProduct', upload.single('image') , async ( req,res,next)=> {
 
     try {
         let results = await db.addProduct(req.body.pCategory,req.body.pName,req.body.pPrice,req.body.pDiscount,req.body.pQty,req.file.filename);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+})
+router.post('/updateProductVisibilty', async ( req,res,next)=> { //admin-productList
+    console.log(req.body.params)
+    try {
+        //await new Promise(resolve => setTimeout(resolve, 10000));
+        let results = await db.updateProductVisibilty(req.body.params.productId);
+        console.log(results)
         res.status(200).json(results)
     } catch (error) {
         console.log(error);
@@ -116,16 +149,127 @@ router.post('/removeProductFromHome', async (req,res,next)=>{
     }
 } )
 
-router.post('/productsOrder', async (req, res,next)=>{
+// router.post('/productsOrder', async (req, res,next)=>{ //shopping-cart
+//     console.log(req.body.params)
+//     try {
+//         let results = await db.productsOrder(req.body.params.orders);
+//         res.status(200).json(results)
+//     } catch (error) {
+//         console.log(error);
+//         res.sendStatus(500)
+//     }
+// })
+router.post('/productsOrder', async (req, res,next)=>{ //shopping-cart
+    async1.parallel([
+            async function(callback){
+               try {
+                    let resultsx = await db.reduceItemAmountAfterOrder(req.body.params.orders);
+                    return resultsx;
+                } catch (error) {
+                    console.log(error)
+                    return error
+                }
+            }
+            ,async function(callback){
+                try {
+                    let results = await db.productsOrder(req.body.params.orders);
+                    return results;
+                } catch (error) {
+                    console.log(error);
+                }
+            }
+        ],function(err,results){
+            if(err){
+                console.log(err)
+                res.json({"status": "failed", "message": "None" })
+            }else{
+                res.sendStatus(200); //both result1 and result2 will be in results
+            }
+        })
+})
+
+
+router.get('/getOrderList',async (req,res,next)=>{
+    try {
+        let results = await db.getOrderList();
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+})
+router.get('/getOrderByTrackId',async (req,res,next)=>{
+    try {
+        let results = await db.getOrderByTrackId(req.query.trackId);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+})
+// router.get('/getOrderDetailsByTrackId',async (req,res,next)=>{ //orderDetails pg
+//     try {
+//         let results = await db.getOrderDetailsByTrackId(req.query.trackId);
+//         res.status(200).json(results)
+//     } catch (error) {
+//         console.log(error);
+//         res.sendStatus(500);
+//     }
+// })
+
+
+router.get('/getOrderDetailsByTrackId', (req,res,next)=>{ //orderDetails pg
+    console.log("track id : " + req.query.trackId)
+    async1.parallel([
+            async function(callback){
+               try {
+                    let resultsx = await db.getOrderDetailsByTrackId(req.query.trackId);
+                    return resultsx;
+                } catch (error) {
+                    console.log(error)
+                    return error
+                }
+            }
+            // ,async function(callback){
+            //     try {
+            //         let resultsx = await db.getOrderDetailsByTrackId(req.query.trackId);
+            //         return resultsx;
+            //     } catch (error) {
+            //         console.log(error)
+            //         return error
+            //     }
+            // }
+
+            // function(callback){
+            //     pool.query("SELECT * FROM products_sold " , function (error, result1) {
+            //         console.log(result1)
+            //         callback(error,result1)
+            //     });
+            // }
+            
+        ],function(err,results){
+            if(err){
+                console.log(err)
+                res.json({"status": "failed", "message": "None" })
+            }else{
+                console.log("res  : "+ results)
+                res.send(JSON.stringify(results)); //both result1 and result2 will be in results
+            }
+        })
+})
+
+//admin pges
+router.post('/orderStatusChange', async (req,res,next)=>{ //orderRequests component
     console.log(req.body.params)
     try {
-        let results = await db.productsOrder(req.body.params.orders);
-        res.status(200).json(results)
+        let results = await db.orderStatusChange(req.body.params.sid,req.body.params.status,);
+        res.sendStatus(200)
     } catch (error) {
         console.log(error);
         res.sendStatus(500)
     }
-})
+} )
+
 
 
 
@@ -153,5 +297,9 @@ router.post('/profile', upload.single('image'),async (req,res,next)=>{
 //     // req.body will hold the text fields, if there were any
 //     console.log(req.file)
 //   })
+
+
+
+
 
 module.exports = router

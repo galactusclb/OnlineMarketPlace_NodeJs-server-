@@ -1,4 +1,5 @@
 const mysql = require('mysql')
+const moment = require('moment')
 
 const pool =mysql.createPool({
     password : '',
@@ -65,7 +66,7 @@ grocerydb.getAllProducts = ()=>{
 
 grocerydb.getItems = (category) =>{
     return new Promise ((resolve, reject)=>{
-        pool.query('SELECT * FROM products WHERE category = ?',[category] ,(err,results)=>{
+        pool.query('SELECT * FROM products WHERE category = ? AND visible=1',[category] ,(err,results)=>{
             if (err) {
                 return reject(err);
             }
@@ -74,9 +75,19 @@ grocerydb.getItems = (category) =>{
         })
     })
 }
-grocerydb.getProductDetails = (id) =>{
+grocerydb.getProductDetailsById = (id) =>{ //product-view component
     return new Promise ((resolve, reject)=>{
         pool.query('SELECT * FROM products WHERE id = ?',[id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.getProductSoldById = (id) =>{ //product-view component
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM products_sold WHERE productId = ? LIMIT 5 ',[id] ,(err,results)=>{
             if (err) {
                 return reject(err);
             }
@@ -92,6 +103,40 @@ grocerydb.addProduct = (pCategory,pName,pPrice,pDiscount,pQty,pPic) =>{
                 return reject(err);
             }
             return resolve(results);
+        })
+    })
+}
+
+grocerydb.updateProductVisibilty = (id) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('SELECT visible FROM products WHERE id=?  ',[id], (err,results)=>{
+            if (err) {
+                return reject(err);
+            }else{
+                var newValue;
+                if (results[0].visible == 0) {
+                    console.log('hidden')
+                    newValue = 1
+                } else {
+                    console.log('show')
+                    newValue = 0
+                }
+                pool.query('UPDATE products SET visible=? WHERE id=?',[newValue,id], (err,results)=>{
+                    if (err) {
+                        return reject(err)
+                    }else{
+                        //return results;   
+                        if (newValue==0) {
+                            return resolve('hidden')
+                        } else {
+                            return resolve('show')
+                        }
+                    }
+                })  
+            }
+            //return resolve(results);
+
+            
         })
     })
 }
@@ -118,6 +163,7 @@ grocerydb.removeProductFromHome = (itemId) =>{
 
 grocerydb.productsOrder = (orders) =>{ // shopping-cart
     return new Promise ((resolve,reject)=>{
+
         pool.query('INSERT INTO orders( date) VALUES(?)',[''], (err,results)=>{
             if (err) {
                 return reject(err)
@@ -129,10 +175,13 @@ grocerydb.productsOrder = (orders) =>{ // shopping-cart
                 }
                 const inserted_id = results.insertId;
                 var fu = paddy(inserted_id, 8);
-
+                
                 const new_id = "OR-"+fu;
+                
+                var timpstamp = moment().format('YYYY-MM-DD H:m:sZ');
+                
 
-                pool.query('UPDATE orders SET orderTrackId=?,totPrice=?,totItemsType=?,discount=?,time=?,status=? WHERE sid=?',[new_id,orders[0].cost,(orders.length-1),0,'19.52','pending',inserted_id], (err,results)=>{
+                pool.query('UPDATE orders SET orderTrackId=?,totPrice=?,totItemsType=?,discount=?,date=?,status=? WHERE sid=?',[new_id,orders[0].cost,(orders.length-1),0,timpstamp,'pending',inserted_id], (err,results)=>{
                     if (err) {
                         return reject(err)
                     }else{
@@ -140,7 +189,7 @@ grocerydb.productsOrder = (orders) =>{ // shopping-cart
                             const prod = orders[i]
 
                             try {
-                                pool.query('INSERT INTO products_sold( trackId,productId,uid,amount,date,time,price,status) VALUES(?,?,?,?,?,?,?,?)',[new_id,prod.id,'chana',prod.Quantity,'','',prod.price,'pending'], (err,results)=>{
+                                pool.query('INSERT INTO products_sold( trackId,productId,uid,amount,date,price,status) VALUES(?,?,?,?,?,?,?)',[new_id,prod.id,'chana',prod.Quantity,timpstamp,prod.price,'pending'], (err,results)=>{
                                     if (err) {
                                         return reject(err);
                                     }
@@ -158,8 +207,81 @@ grocerydb.productsOrder = (orders) =>{ // shopping-cart
         })
     }
 )}
+grocerydb.reduceItemAmountAfterOrder = (orders) =>{ // shopping-cart
+    return new Promise ((resolve,reject)=>{
 
+        for (let i = 1; i < orders.length; i++) {
+            try {
+                pool.query('SELECT * FROM products WHERE id=?',[orders[i].id], (err,results)=>{
+                    if (err) {
+                        return reject(err);
+                    }else{
+                        const itemAmount = parseInt(results[0].qty)
+                        const itemSold = parseInt(results[0].itemSold)
 
+                        const orderItems = parseInt(orders[i].Quantity)
+
+                        const newAmount = itemAmount-orderItems;
+                        const newSoldItems = itemSold+orderItems
+
+                        console.log('new amount : ' +(newAmount) + ' sold items : ' + newSoldItems )
+                        pool.query('UPDATE products SET qty=?,itemSold=? WHERE id=?',[newAmount,newSoldItems,orders[i].id], (err,results)=>{
+                            if (err) {
+                                return reject(err)
+                            }else{
+                                return results;   
+                            }
+                        })                        
+                    }
+                })
+            } catch (error) {
+                console.log(error)
+            }   
+        }
+    }
+)}
+
+grocerydb.getOrderList = () =>{
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM orders',[''] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.getOrderByTrackId = (id) =>{
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM orders WHERE orderTrackId=?',[id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.getOrderDetailsByTrackId = (id) =>{
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM products_sold WHERE trackId=?',[id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+
+grocerydb.orderStatusChange = (id,status) =>{
+    return new Promise (( resolve,reject)=>{
+        pool.query('UPDATE orders SET status=? WHERE sid=?',[status,id], (err,results)=>{
+            if (err) {
+                return reject(err)
+            }
+            return resolve(results)
+        })
+    })
+}
 
 
 module.exports = grocerydb;
