@@ -85,6 +85,28 @@ grocerydb.getProductDetailsById = (id) =>{ //product-view component
         })
     })
 }
+
+grocerydb.updateProdcutsDetails = (id,name,category,price,discountOn,discount,qty,tags,visible) =>{ //product-view component
+    return new Promise ((resolve, reject)=>{
+        pool.query('UPDATE products SET name=?,price=?,discountOn=?,discount=?,qty=?,category=?,tags=?,visible=? WHERE id=?',[name,price,discountOn,discount,qty,category,tags,visible,id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.updateProductImg = (fileName,id) =>{ //product-view component
+    return new Promise ((resolve, reject)=>{
+        pool.query('UPDATE products SET pic=? WHERE id=?',[fileName,id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+
 grocerydb.getProductSoldById = (id) =>{ //product-view component
     return new Promise ((resolve, reject)=>{
         pool.query('SELECT * FROM products_sold WHERE productId = ? LIMIT 5 ',[id] ,(err,results)=>{
@@ -96,9 +118,9 @@ grocerydb.getProductSoldById = (id) =>{ //product-view component
     })
 }
 
-grocerydb.addProduct = (pCategory,pName,pPrice,pDiscount,pQty,pPic) =>{
+grocerydb.addProduct = (pCategory,pName,pPrice,pDiscount,pQty,pPic,visible) =>{
     return new Promise ((resolve,reject)=>{
-        pool.query('INSERT INTO products(name,price,discount,qty,category,pic) VALUES(?,?,?,?,?,?) ',[pName,pPrice,pDiscount,pQty,pCategory,pPic], (err,results)=>{
+        pool.query('INSERT INTO products(name,price,discount,qty,category,pic,visible) VALUES(?,?,?,?,?,?,?) ',[pName,pPrice,pDiscount,pQty,pCategory,pPic,visible], (err,results)=>{
             if (err) {
                 return reject(err);
             }
@@ -107,7 +129,7 @@ grocerydb.addProduct = (pCategory,pName,pPrice,pDiscount,pQty,pPic) =>{
     })
 }
 
-grocerydb.updateProductVisibilty = (id) =>{
+grocerydb.updateProductVisibilty = (id) =>{ //product-list component
     return new Promise ((resolve,reject)=>{
         pool.query('SELECT visible FROM products WHERE id=?  ',[id], (err,results)=>{
             if (err) {
@@ -140,6 +162,41 @@ grocerydb.updateProductVisibilty = (id) =>{
         })
     })
 }
+grocerydb.updateProductDiscountOnOff = (id) =>{ //product-list component
+    return new Promise ((resolve,reject)=>{
+        pool.query('SELECT discountOn FROM products WHERE id=?  ',[id], (err,results)=>{
+            if (err) {
+                return reject(err);
+            }else{
+                var newValue;
+                console.log(results[0].discountOn)
+                if (results[0].discountOn == 0) {
+                    //console.log('hidden')
+                    newValue = 1
+                } else {
+                   // console.log('show')
+                    newValue = 0
+                }
+                pool.query('UPDATE products SET discountOn=? WHERE id=?',[newValue,id], (err,results)=>{
+                    if (err) {
+                        return reject(err)
+                    }else{
+                        //return results;   
+                        if (newValue==0) {
+                            return resolve('hidden')
+                        } else {
+                            return resolve('show')
+                        }
+                    }
+                })  
+            }
+            //return resolve(results);
+
+            
+        })
+    })
+}
+
 grocerydb.addMainCategoryProducts = (pCategory,pId) =>{
     return new Promise ((resolve,reject)=>{
         pool.query('INSERT INTO main_category_products(category,product_id) VALUES(?,?) ',[pCategory,pId], (err,results)=>{

@@ -73,7 +73,40 @@ router.get('/getItems', async (req,res,next)=>{
         res.sendStatus(500)
     }
 })
-router.get('/getProductDetails', async (req,res,next)=>{ //product-view component
+
+router.get('/getProductDetails', async (req,res,next)=>{  //productEdt component
+    try {
+        let results = await db.getProductDetailsById(req.query.productId);
+        res.json(results);
+    } catch (error) {
+        res.sendStatus(500)
+    }
+})
+
+router.post('/updateProdcutsDetails', async (req,res,next)=>{  //productEdt component
+    console.log(req.body)
+    var body = req.body
+    try {
+        let results = await db.updateProdcutsDetails(body.id,body.name,body.category,body.price,body.discountOn,body.discount,body.qty,body.tags,body.visible);
+        res.status(200).json(results);
+    } catch (error) {
+        res.sendStatus(500)
+    }
+})
+
+router.post('/updateProductImg', upload.single('image') , async ( req,res,next)=> { //productEdt component
+    //console.log(req.body.prodcutId)
+    try {
+        let results = await db.updateProductImg(req.file.filename,req.body.prodcutId);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+})
+
+
+router.get('/getProductDetailsHistory', async (req,res,next)=>{ //product-view component
       async1.parallel([
         async function(callback){
             try {
@@ -106,10 +139,10 @@ router.get('/getProductDetails', async (req,res,next)=>{ //product-view componen
 router.post('/addProduct', upload.single('image') , async ( req,res,next)=> {
     // console.log(req.file.filename)
     // console.log(req.file.path)
-    console.log(req.body)
+    console.log(req.body.visible)
 
     try {
-        let results = await db.addProduct(req.body.pCategory,req.body.pName,req.body.pPrice,req.body.pDiscount,req.body.pQty,req.file.filename);
+        let results = await db.addProduct(req.body.pCategory,req.body.pName,req.body.pPrice,req.body.pDiscount,req.body.pQty,req.file.filename,req.body.visible);
         res.status(200).json(results)
     } catch (error) {
         console.log(error);
@@ -122,6 +155,18 @@ router.post('/updateProductVisibilty', async ( req,res,next)=> { //admin-product
         //await new Promise(resolve => setTimeout(resolve, 10000));
         let results = await db.updateProductVisibilty(req.body.params.productId);
         console.log(results)
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+})
+router.post('/updateProductDiscountOnOff', async ( req,res,next)=> { //admin-productList
+    console.log(req.body.params)
+    try {
+        //await new Promise(resolve => setTimeout(resolve, 10000));
+        let results = await db.updateProductDiscountOnOff(req.body.params.productId);
+        //console.log(results)
         res.status(200).json(results)
     } catch (error) {
         console.log(error);
@@ -260,10 +305,10 @@ router.get('/getOrderDetailsByTrackId', (req,res,next)=>{ //orderDetails pg
 
 //admin pges
 router.post('/orderStatusChange', async (req,res,next)=>{ //orderRequests component
-    console.log(req.body.params)
+    //console.log(req.body.params)
     try {
         let results = await db.orderStatusChange(req.body.params.sid,req.body.params.status,);
-        res.sendStatus(200)
+        res.status(200).json(results)
     } catch (error) {
         console.log(error);
         res.sendStatus(500)
@@ -283,8 +328,6 @@ router.post('/uploadProductImg', async (res,req,next)=>{
         res.sendStatus(500)
     }
 })
-
-
 
 router.post('/profile', upload.single('image'),async (req,res,next)=>{
     console.log(req.file.filename)
