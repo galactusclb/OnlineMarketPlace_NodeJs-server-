@@ -1,10 +1,13 @@
 const express = require('express')
+const jwt = require('jsonwebtoken')
 const db = require('../Db/index')
 const bodyParser = require('body-parser');
 const multer = require('multer')
 const path = require('path'); 
 var async1 = require('async')
 // var upload = multer({ dest: 'uploads/' })
+const { check, validationResult } = require('express-validator');
+const bcrypt = require('bcrypt');
 
 const router = express.Router()
 
@@ -41,7 +44,108 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage})
 
-router.get('/getMainCategoryProducts', async (req,res,next)=>{
+
+//login/reg routes
+
+function verifyToken(req,res,next){
+    if(!req.headers.authorization){
+        return res.status(401).send('Unauthorized request-1')
+    }
+    let token = req.headers.authorization.split(' ')[1]
+    if (token === 'null') {
+        return res.status(401).send('Unauthorized request-2')
+    }
+
+    try {
+        let payload = jwt.verify(token, 'mysecretKey');
+        // if (!payload) {
+        //     return res.status(401).send("Unothorized request-3")
+        // }
+        req.userName = payload.subject
+        next();
+    } catch (error) {
+        return res.status(401).send("Unothorized request-4")
+    }
+}
+
+router.get('/getPermisionUser',verifyToken, async (req,res,next) =>{    //
+    try{
+        res.status(200).send(true);
+    }catch(e){
+        console.log(e)
+        res.sendStatus(500);
+    }
+})
+
+router.post('/register',
+    [
+        check('uName')
+            .not().isEmpty().withMessage('Username is empty')
+            .trim().escape(),
+        check('uPass')
+            .exists()
+            .withMessage('Password should not be empty')
+            .isLength({ min: 5 })
+            .withMessage('Password should not be empty, minimum five characters')
+            .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{5,}$/, "i")
+            .withMessage('Password should not be empty, minimum five characters, at least one letter, one number and one special character')
+    ],
+     async ( req,res,next)=>{
+            console.log(req.body)
+            const errors = validationResult(req)
+
+            if (!errors.isEmpty()) {
+                console.log(errors);
+                res.status(422).send(errors);
+            }else{
+                const saltRound = 10;
+                const hashpassword =await bcrypt.hash(req.body.uPass, saltRound );
+
+                try {
+                    let result = await db.userRegister(req.body.uName,hashpassword)
+                    res.status(200).json(result)
+                } catch (error) {
+                    console.log(error)
+                    res.sendStatus(409)
+                }
+            }            
+})
+
+router.post('/login', async ( req,res,next)=>{
+    console.log(req.body)
+    try {
+        let result = await db.userLogin(
+            req.body.uName,
+            req.body.uPass
+        );
+        if (result.length == 0) {
+            result = 'Username or Password is wrong :( '
+            res.status(200).send(result);
+        }
+        else{
+            let payload = { subject: result }
+            let token = jwt.sign(payload, 'mysecretKey')
+            res.status(200).send({token});
+        }
+    } catch (error) {
+        console.log(error);
+        res.status(401).send(error);
+    } 
+})
+
+
+
+
+
+
+
+
+
+
+
+
+//product routes
+router.get('/getMainCategoryProducts', async (req,res,next)=>{ //home component
     console.log(req.query)
     try {
         let results = await db.getMainCategoryProducts(req.query.category);
@@ -52,7 +156,7 @@ router.get('/getMainCategoryProducts', async (req,res,next)=>{
         res.sendStatus(500)
     }
 })
-router.get('/getAllProducts', async (req,res,next)=>{ //admin-productList
+router.get('/getAllProducts',verifyToken, async (req,res,next)=>{ //admin-productList
     try {
         let results = await db.getAllProducts();
         res.json(results);
@@ -62,7 +166,7 @@ router.get('/getAllProducts', async (req,res,next)=>{ //admin-productList
     }
 })
 
-router.get('/getItems', async (req,res,next)=>{
+router.get('/getItems', async (req,res,next)=>{ //shopping component
   //  console.log(req.query)
     try {
         let results = await db.getItems(req.query.category);
@@ -74,7 +178,7 @@ router.get('/getItems', async (req,res,next)=>{
     }
 })
 
-router.get('/getProductDetails', async (req,res,next)=>{  //productEdt component
+router.get('/getProductDetails', async (req,res,next)=>{  //productEdit component
     try {
         let results = await db.getProductDetailsById(req.query.productId);
         res.json(results);
@@ -136,7 +240,7 @@ router.get('/getProductDetailsHistory', async (req,res,next)=>{ //product-view c
     })
   })
 
-router.post('/addProduct', upload.single('image') , async ( req,res,next)=> {
+router.post('/addProduct', upload.single('image') , async ( req,res,next)=> { //product-add component
     // console.log(req.file.filename)
     // console.log(req.file.path)
     console.log(req.body.visible)
@@ -173,7 +277,7 @@ router.post('/updateProductDiscountOnOff', async ( req,res,next)=> { //admin-pro
         res.sendStatus(500)
     }
 })
-router.post('/addMainCategoryProducts', async ( req,res,next)=> {
+router.post('/addMainCategoryProducts', async ( req,res,next)=> { //edit-home component
     console.log(req.body)
     try {
         let results = await db.addMainCategoryProducts(req.body.pCategory,req.body.pId);
@@ -183,7 +287,7 @@ router.post('/addMainCategoryProducts', async ( req,res,next)=> {
         res.sendStatus(500)
     }
 })
-router.post('/removeProductFromHome', async (req,res,next)=>{
+router.post('/removeProductFromHome', async (req,res,next)=>{ //edit-home component
     console.log(req.body.params.item)
     try {
         let results = await db.removeProductFromHome(req.body.params.item);
@@ -234,7 +338,7 @@ router.post('/productsOrder', async (req, res,next)=>{ //shopping-cart
 })
 
 
-router.get('/getOrderList',async (req,res,next)=>{
+router.get('/getOrderList',async (req,res,next)=>{ //order-request component
     try {
         let results = await db.getOrderList();
         res.status(200).json(results)
@@ -243,7 +347,7 @@ router.get('/getOrderList',async (req,res,next)=>{
         res.sendStatus(500);
     }
 })
-router.get('/getOrderByTrackId',async (req,res,next)=>{
+router.get('/getOrderByTrackId',async (req,res,next)=>{ //order-details component
     try {
         let results = await db.getOrderByTrackId(req.query.trackId);
         res.status(200).json(results)
@@ -263,7 +367,7 @@ router.get('/getOrderByTrackId',async (req,res,next)=>{
 // })
 
 
-router.get('/getOrderDetailsByTrackId', (req,res,next)=>{ //orderDetails pg
+router.get('/getOrderDetailsByTrackId', (req,res,next)=>{ //orderDetails component
     console.log("track id : " + req.query.trackId)
     async1.parallel([
             async function(callback){
@@ -318,7 +422,7 @@ router.post('/orderStatusChange', async (req,res,next)=>{ //orderRequests compon
 
 
 
-router.post('/uploadProductImg', async (res,req,next)=>{
+router.post('/uploadProductImg', async (res,req,next)=>{ //product-add component, product-edit component
     console.log(res.file)
     try {
         // let results = await db.addProduct();

@@ -1,5 +1,6 @@
 const mysql = require('mysql')
 const moment = require('moment')
+const bcrypt = require('bcrypt');
 
 const pool =mysql.createPool({
     password : '',
@@ -11,7 +12,53 @@ const pool =mysql.createPool({
 
 let grocerydb = {}
 
+//user reg/login query
+grocerydb.userRegister = (uName,uPass) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('INSERT INTO users(uid,uname,password) VALUES(?,?,?) ',['0',uName,uPass], (err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.userLogin = (uName,uPass) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('SELECT uname,password,role FROM users WHERE uname=? LIMIT 1',[uName],async (err,results)=>{
+            if(err){
+                status = 'No UserName Or Email found'
+                return reject(status)
+            }else{
+                if (results.length == 0) {
+                    status = 'No UserName Or Email found'
+                    return reject(status)
+                } else {
+                    const isMatch =await bcrypt.compare(uPass,results[0].password);
 
+                    if (isMatch == true) {
+                        var tt = []
+                        ress =  {
+                            userName: results[0].uname,
+                            role: results[0].role
+                        } 
+                        tt.push(ress);
+                        
+                        return resolve(tt)
+                    }else{
+                        status = 'Password is wrong'
+                        return reject(status)
+                    }
+                }
+            }
+        })
+    })
+}
+
+
+
+
+// products query 
 grocerydb.getMainCategoryProducts = (category) =>{
 
         // return new Promise ((resolve, reject)=>{
