@@ -1,6 +1,7 @@
 const mysql = require('mysql')
 const moment = require('moment')
 const bcrypt = require('bcrypt');
+var async1 = require('async')
 
 const pool =mysql.createPool({
     password : '',
@@ -13,7 +14,7 @@ const pool =mysql.createPool({
 let grocerydb = {}
 
 //user reg/login query
-grocerydb.userRegister = (uName,uPass) =>{
+grocerydb.userRegister = (uName,uPass) =>{ //h
     return new Promise ((resolve,reject)=>{
         pool.query('INSERT INTO users(uid,uname,password) VALUES(?,?,?) ',['0',uName,uPass], (err,results)=>{
             if (err) {
@@ -97,6 +98,18 @@ grocerydb.getMainCategoryProducts = (category) =>{
                 return resolve(results);
             })
         })
+
+}
+grocerydb.mainSearchProducts = (title) =>{
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM products WHERE name LIKE "%'+title+'%" ',(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            //console.log(results);
+            return resolve(results);
+        })
+    })
 
 }
 
@@ -265,6 +278,7 @@ grocerydb.removeProductFromHome = (itemId) =>{
     })
 }
 
+
 grocerydb.productsOrder = (orders) =>{ // shopping-cart
     return new Promise ((resolve,reject)=>{
 
@@ -314,25 +328,27 @@ grocerydb.productsOrder = (orders) =>{ // shopping-cart
 grocerydb.reduceItemAmountAfterOrder = (orders) =>{ // shopping-cart
     return new Promise ((resolve,reject)=>{
 
-        for (let i = 1; i < orders.length; i++) {
+        //for (let i = 1; i < orders.length; i++) {
             try {
-                pool.query('SELECT * FROM products WHERE id=?',[orders[i].id], (err,results)=>{
+                pool.query('SELECT * FROM products WHERE id=?',[orders.id], (err,results)=>{
                     if (err) {
                         return reject(err);
                     }else{
+                        console.log(results[0])
+                        console.log(orders)
                         const itemAmount = parseInt(results[0].qty)
                         const itemSold = parseInt(results[0].itemSold)
 
-                        const orderItems = parseInt(orders[i].Quantity)
+                        const orderItems = parseInt(orders.Quantity)
 
                         const newAmount = itemAmount-orderItems;
                         const newSoldItems = itemSold+orderItems
 
                         console.log('new amount : ' +(newAmount) + ' sold items : ' + newSoldItems )
-                        pool.query('UPDATE products SET qty=?,itemSold=? WHERE id=?',[newAmount,newSoldItems,orders[i].id], (err,results)=>{
-                            if (err) {
-                                return reject(err)
-                            }else{
+                        pool.query('UPDATE products SET qty=?,itemSold=? WHERE id=?',[newAmount,newSoldItems,orders.id], (err,results)=>{
+                            if (err) reject(err)
+                            
+                            else{
                                 return results;   
                             }
                         })                        
@@ -341,7 +357,7 @@ grocerydb.reduceItemAmountAfterOrder = (orders) =>{ // shopping-cart
             } catch (error) {
                 console.log(error)
             }   
-        }
+        //}
     }
 )}
 

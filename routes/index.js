@@ -124,8 +124,8 @@ router.post('/login', async ( req,res,next)=>{
         }
         else{
             let payload = { subject: result }
-            let token = jwt.sign(payload, 'mysecretKey')
-            res.status(200).send({token});
+            let jwtToken = jwt.sign(payload, 'mysecretKey', { expiresIn : 600 })
+            res.status(200).send({jwtToken});
         }
     } catch (error) {
         console.log(error);
@@ -186,7 +186,17 @@ router.get('/getProductDetails', async (req,res,next)=>{  //productEdit componen
         res.sendStatus(500)
     }
 })
-
+router.get('/mainSearchProducts', async (req,res,next)=>{ //home component
+    console.log(req.query)
+    try {
+        let results = await db.mainSearchProducts(req.query.details);
+        res.json(results);
+        console.log(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+})
 router.post('/updateProdcutsDetails', async (req,res,next)=>{  //productEdt component
     console.log(req.body)
     var body = req.body
@@ -308,34 +318,51 @@ router.post('/removeProductFromHome', async (req,res,next)=>{ //edit-home compon
 //         res.sendStatus(500)
 //     }
 // })
+
+
 router.post('/productsOrder', async (req, res,next)=>{ //shopping-cart
+    
+    // try {
+    //     let results = await db.productsOrderAndReduce(req.body.params.orders);
+    //     res.status(200).json(results)
+    // } catch (error) {
+    //     console.log(error);
+    //     res.sendStatus(500)
+    // }
+    
     async1.parallel([
-            async function(callback){
-               try {
-                    let resultsx = await db.reduceItemAmountAfterOrder(req.body.params.orders);
-                    return resultsx;
-                } catch (error) {
-                    console.log(error)
-                    return error
-                }
-            }
-            ,async function(callback){
+            // async function(callback){
+            //     for (let i = 1; i < req.body.params.orders.length; i++) {
+            //         try {
+            //                 let resultsx = await db.reduceItemAmountAfterOrder(req.body.params.orders[i]);
+            //                 return resultsx;
+            //             } catch (error) {
+            //                 console.log(error)
+            //                 return error
+            //             }
+            //     }
+            // }
+            // ,
+            async function(inner_callback){
                 try {
                     let results = await db.productsOrder(req.body.params.orders);
                     return results;
+                    //inner_callback(results)
                 } catch (error) {
                     console.log(error);
+                    inner_callback(error)
+                    return error
                 }
             }
         ],function(err,results){
             if(err){
-                console.log(err)
-                res.json({"status": "failed", "message": "None" })
+                //console.log(err )
+                res.status(500).json({"status": "failed", "message": err })
             }else{
-                res.sendStatus(200); //both result1 and result2 will be in results
+                res.status(200).json(results); //both result1 and result2 will be in results
             }
-        })
-})
+        })    
+ })
 
 
 router.get('/getOrderList',async (req,res,next)=>{ //order-request component
