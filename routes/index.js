@@ -124,7 +124,7 @@ router.post('/login', async ( req,res,next)=>{
         }
         else{
             let payload = { subject: result }
-            let jwtToken = jwt.sign(payload, 'mysecretKey', { expiresIn : 600 })
+            let jwtToken = jwt.sign(payload, 'mysecretKey', { expiresIn : 60 })
             res.status(200).send({jwtToken});
         }
     } catch (error) {
@@ -204,6 +204,17 @@ router.post('/updateProdcutsDetails', async (req,res,next)=>{  //productEdt comp
         let results = await db.updateProdcutsDetails(body.id,body.name,body.category,body.price,body.discountOn,body.discount,body.qty,body.tags,body.visible);
         res.status(200).json(results);
     } catch (error) {
+        res.sendStatus(500)
+    }
+})
+router.post('/updateProductTags', async (req,res,next)=>{  //productEdt component
+    console.log(req.body.params)
+    var x = req.body.params
+    try {
+        let results = await db.updateProductTags(x.tags,x.id);
+        res.status(200).json(results);
+    } catch (error) {
+        console.log(error)
         res.sendStatus(500)
     }
 })

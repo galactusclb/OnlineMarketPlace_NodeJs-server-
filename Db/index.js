@@ -101,8 +101,8 @@ grocerydb.getMainCategoryProducts = (category) =>{
 
 }
 grocerydb.mainSearchProducts = (title) =>{
-    return new Promise ((resolve, reject)=>{
-        pool.query('SELECT * FROM products WHERE name LIKE "%'+title+'%" ',(err,results)=>{
+    return new Promise ((resolve, reject)=>{ //(CONCAT (cid) LIKE "'+gg[0]+'%")
+        pool.query('SELECT * FROM products WHERE name LIKE "%'+title+'%" OR tags LIKE "%'+title+'%"',(err,results)=>{
             if (err) {
                 return reject(err);
             }
@@ -156,6 +156,26 @@ grocerydb.updateProdcutsDetails = (id,name,category,price,discountOn,discount,qt
         })
     })
 }
+
+grocerydb.updateProductTags = (tags,id) =>{ //product-view component
+    return new Promise ((resolve, reject)=>{
+        pool.query('UPDATE products SET tags=? WHERE id=?',[tags,id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            else{
+                pool.query('SELECT tags FROM products WHERE id=?',[id] ,(err,results)=>{
+                    if (err) {
+                        return reject(err);
+                    }                   
+                    return resolve(results);
+                })
+            }
+            //return resolve(results);
+        })
+    })
+}
+
 grocerydb.updateProductImg = (fileName,id) =>{ //product-view component
     return new Promise ((resolve, reject)=>{
         pool.query('UPDATE products SET pic=? WHERE id=?',[fileName,id] ,(err,results)=>{
