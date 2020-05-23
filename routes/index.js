@@ -8,6 +8,18 @@ var async1 = require('async')
 // var upload = multer({ dest: 'uploads/' })
 const { check, validationResult } = require('express-validator');
 const bcrypt = require('bcrypt');
+//const crypto = require('cry')
+const nodemailer = require('nodemailer')
+const sendgridTranspoter = require('nodemailer-sendgrid-transport')
+
+const sendGridAPiKey = "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";
+const fromEmail = "chanakabit123@gmail.com";
+
+const transpoter = nodemailer.createTransport(sendgridTranspoter({
+    auth:{
+        api_key: sendGridAPiKey
+    }
+}));
 
 const router = express.Router()
 
@@ -78,7 +90,9 @@ router.get('/getPermisionUser',verifyToken, async (req,res,next) =>{    //
 })
 
 router.post('/register',
-    [
+    [   check('email')
+            .not().isEmpty().withMessage('Email is empty').isEmail().withMessage('Email is not valid')
+            .trim().escape(),
         check('uName')
             .not().isEmpty().withMessage('Username is empty')
             .trim().escape(),
@@ -98,16 +112,35 @@ router.post('/register',
                 console.log(errors);
                 res.status(422).send(errors);
             }else{
-                const saltRound = 10;
-                const hashpassword =await bcrypt.hash(req.body.uPass, saltRound );
+                let savedUser =  await db.findOneUser(req.body.email,req.body.uname)
 
-                try {
-                    let result = await db.userRegister(req.body.uName,hashpassword)
-                    res.status(200).json(result)
-                } catch (error) {
-                    console.log(error)
-                    res.sendStatus(409)
+                if (savedUser) {
+                    //console.log('erororor')
+                    return res.status(422).json("User already exists with that email/username.")
+                }else{
+                    console.log('gg')
+                    const saltRound = 10;
+                    const hashpassword = await bcrypt.hash(req.body.uPass, saltRound );
+
+                    try {
+                        let result = await db.userRegister(req.body.email,req.body.uName,hashpassword)
+                            
+                        //console.log(result);
+                        if(result){
+                            transpoter.sendMail({
+                                to: req.body.email,
+                                from: fromEmail,
+                                subject: "SignUp successfully",
+                                html: "<h1>Welcome</h1>"
+                            })
+                            res.status(200).json({ message : 'Check your Email.'})
+                        }
+                    } catch (error) {
+                        console.log(error)
+                        res.sendStatus(409)
+                    }
                 }
+                //console.log(result1)
             }            
 })
 
@@ -124,7 +157,7 @@ router.post('/login', async ( req,res,next)=>{
         }
         else{
             let payload = { subject: result }
-            let jwtToken = jwt.sign(payload, 'mysecretKey', { expiresIn : 60 })
+            let jwtToken = jwt.sign(payload, 'mysecretKey', { expiresIn : 600 })
             res.status(200).send({jwtToken});
         }
     } catch (error) {
@@ -145,6 +178,27 @@ router.post('/login', async ( req,res,next)=>{
 
 
 //product routes
+router.get('/getMainCategoriesList', async (req,res,next)=>{ //home component
+    console.log(req.query)
+    try {
+        let results = await db.getMainCategoriesList();
+        res.json(results);
+        console.log(results)
+    } catch (error) {
+        console.log(e);
+        res.sendStatus(500)
+    }
+})
+router.get('/getMainCategoriesListAdmin', async (req,res,next)=>{ //home component
+    console.log(req.query)
+    try {
+        let results = await db.getMainCategoriesListAdmin();
+        res.json(results);
+    } catch (error) {
+        console.log(e);
+        res.sendStatus(500)
+    }
+})
 router.get('/getMainCategoryProducts', async (req,res,next)=>{ //home component
     console.log(req.query)
     try {
@@ -298,6 +352,30 @@ router.post('/updateProductDiscountOnOff', async ( req,res,next)=> { //admin-pro
         res.sendStatus(500)
     }
 })
+
+
+router.post('/addMainCategoriesTitle', async ( req,res,next)=> { //edit-home component
+    console.log(req.body)
+    try {
+        let results = await db.addMainCategoriesTitle(req.body.pCategory,req.body.visibilty);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+})
+router.post('/updateMainCategoryVisibilty', async ( req,res,next)=> { //admin-productList
+    console.log(req.body.params.category)
+    try {
+        //await new Promise(resolve => setTimeout(resolve, 10000));
+        let results = await db.updateMainCategoryVisibilty(req.body.params.category);
+        //console.log(results)
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+})
 router.post('/addMainCategoryProducts', async ( req,res,next)=> { //edit-home component
     console.log(req.body)
     try {
@@ -308,6 +386,18 @@ router.post('/addMainCategoryProducts', async ( req,res,next)=> { //edit-home co
         res.sendStatus(500)
     }
 })
+
+router.post('/removeCategoryFromHome', async (req,res,next)=>{ //edit-home component
+    console.log(req.body.params.category)
+    try {
+        // let results = await db.getOrderByTrackId(req.query.trackId);
+        let results = await db.removeCategoryFromHome(req.body.params.category);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+} )
 router.post('/removeProductFromHome', async (req,res,next)=>{ //edit-home component
     console.log(req.body.params.item)
     try {

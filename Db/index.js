@@ -14,9 +14,25 @@ const pool =mysql.createPool({
 let grocerydb = {}
 
 //user reg/login query
-grocerydb.userRegister = (uName,uPass) =>{ //h
+
+grocerydb.findOneUser = ( email,uname) =>{
+    return new Promise((resolve,reject)=>{
+        pool.query('SELECT email,uname FROM users WHERE email=? LIMIT 1',[email], (err,results)=>{
+            if (err) {
+                return reject(err)
+            }else{
+                if (results.length > 0 ) {
+                    return resolve(true);
+                } else {
+                    return resolve(false);
+                }
+            }
+        })
+    })
+}
+grocerydb.userRegister = (email,uName,uPass) =>{ //h
     return new Promise ((resolve,reject)=>{
-        pool.query('INSERT INTO users(uid,uname,password) VALUES(?,?,?) ',['0',uName,uPass], (err,results)=>{
+        pool.query('INSERT INTO users(uid,email,uname,password) VALUES(?,?,?,?) ',['0',email,uName,uPass], (err,results)=>{
             if (err) {
                 return reject(err);
             }
@@ -60,6 +76,30 @@ grocerydb.userLogin = (uName,uPass) =>{
 
 
 // products query 
+grocerydb.getMainCategoriesList = () =>{
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM main_index_categories WHERE visibility=1' ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            console.log(results);
+            return resolve(results);
+        })
+    })
+
+}
+grocerydb.getMainCategoriesListAdmin = () =>{
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM main_index_categories' ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            console.log(results);
+            return resolve(results);
+        })
+    })
+
+}
 grocerydb.getMainCategoryProducts = (category) =>{
 
         // return new Promise ((resolve, reject)=>{
@@ -277,9 +317,72 @@ grocerydb.updateProductDiscountOnOff = (id) =>{ //product-list component
     })
 }
 
+
+grocerydb.addMainCategoriesTitle = (pCategory,visible) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('INSERT INTO main_index_categories(category,visibility) VALUES(?,?) ',[pCategory,visible], (err,results)=>{
+            if (err) {
+                return reject(err);
+            }else{
+                pool.query('SELECT * FROM main_index_categories',(err,results)=>{
+                    if (err) {
+                        return reject(err);
+                    }                   
+                    return resolve(results);
+                })
+            }
+            //return resolve(results);
+        })
+    })
+}
+
+grocerydb.updateMainCategoryVisibilty = (category) =>{ //product-list component
+    return new Promise ((resolve,reject)=>{
+        pool.query('SELECT visibility FROM main_index_categories WHERE category=?  ',[category], (err,results)=>{
+            if (err) {
+                return reject(err);
+            }else{
+                var newValue;
+                console.log(results[0].visibility)
+                if (results[0].visibility == 0) {
+                    //console.log('hidden')
+                    newValue = 1
+                } else {
+                   // console.log('show')
+                    newValue = 0
+                }
+                pool.query('UPDATE main_index_categories SET visibility=? WHERE category=?',[newValue,category], (err,results)=>{
+                    if (err) {
+                        return reject(err)
+                    }else{
+                        //return results;   
+                        if (newValue==0) {
+                            return resolve('hidden')
+                        } else {
+                            return resolve('show')
+                        }
+                    }
+                })  
+            }
+            //return resolve(results);
+
+            
+        })
+    })
+}
 grocerydb.addMainCategoryProducts = (pCategory,pId) =>{
     return new Promise ((resolve,reject)=>{
         pool.query('INSERT INTO main_category_products(category,product_id) VALUES(?,?) ',[pCategory,pId], (err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.removeCategoryFromHome = (category) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('DELETE FROM main_index_categories WHERE category = ?',[category], (err,results)=>{
             if (err) {
                 return reject(err);
             }
