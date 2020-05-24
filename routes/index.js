@@ -8,7 +8,7 @@ var async1 = require('async')
 // var upload = multer({ dest: 'uploads/' })
 const { check, validationResult } = require('express-validator');
 const bcrypt = require('bcrypt');
-//const crypto = require('cry')
+const crypto = require('crypto');
 const nodemailer = require('nodemailer')
 const sendgridTranspoter = require('nodemailer-sendgrid-transport')
 
@@ -102,7 +102,10 @@ router.post('/register',
             .isLength({ min: 5 })
             .withMessage('Password should not be empty, minimum five characters')
             .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{5,}$/, "i")
-            .withMessage('Password should not be empty, minimum five characters, at least one letter, one number and one special character')
+            .withMessage('Password should not be empty, minimum five characters, at least one letter, one number and one special character'),
+        check('town')
+            .not().isEmpty().withMessage('Select city/town')
+            .trim().escape(),
     ],
      async ( req,res,next)=>{
             console.log(req.body)
@@ -118,30 +121,66 @@ router.post('/register',
                     //console.log('erororor')
                     return res.status(422).json("User already exists with that email/username.")
                 }else{
-                    console.log('gg')
                     const saltRound = 10;
                     const hashpassword = await bcrypt.hash(req.body.uPass, saltRound );
 
                     try {
-                        let result = await db.userRegister(req.body.email,req.body.uName,hashpassword)
+                        crypto.randomBytes(32,async (err,buffer)=>{
+                            if (err) {
+                                console.log(err);
+                            }
+                            const token = buffer.toString("hex");
+                            const expireToken = Date.now() + 24*60*60*1000;
+                            //console.log(token)
+
+                            await db.userRegister(req.body.email,req.body.uName,hashpassword,req.body.town,token,expireToken)
+                                .then((result)=>{
+                                    if(result){
+                                        transpoter.sendMail({
+                                            to: req.body.email,
+                                            from: fromEmail,
+                                            subject: "Welcome to ClbGrocery! Confirm Your Email",
+                                            html:
+                                                `
+                                                <p>Let's confirm your email address</p>
+                                                <span>User name : ${req.body.uName} </span>
+                                                <h5>By clicking on the following link, you are confirming your email address.</h5>
+                                                <a href="http://localhost:4200/confirm/${token}">Confirm Email Address</a>
+                                                <br><span>This link will expire after 1 day</span>
+                                                `
+                                        })
+                                        res.status(200).json({ message : 'Check your Email.'})
+                                    }
+                                }).catch(err=>{
+                                    console.log(err)
+                                }) 
+
                             
-                        //console.log(result);
-                        if(result){
-                            transpoter.sendMail({
-                                to: req.body.email,
-                                from: fromEmail,
-                                subject: "SignUp successfully",
-                                html: "<h1>Welcome</h1>"
-                            })
-                            res.status(200).json({ message : 'Check your Email.'})
-                        }
+                        })
                     } catch (error) {
                         console.log(error)
                         res.sendStatus(409)
                     }
                 }
-                //console.log(result1)
             }            
+})
+
+router.post('/confirmemail', async (req,res,next) =>{    //
+    console.log(req.body)
+    try {
+        await db.confirmEmail(req.body.details)
+            .then((result)=>{
+                if (result) {
+                    res.status(200).json({message : 'your account has been confirmed' })
+                }else{
+                    res.status(400).json({message : 'the link has expired or invalid link' })
+                }
+            });
+        
+    } catch (error) {
+        console.log(e);
+        res.sendStatus(500)
+    }
 })
 
 router.post('/login', async ( req,res,next)=>{

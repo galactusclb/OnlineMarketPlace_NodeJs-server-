@@ -30,9 +30,9 @@ grocerydb.findOneUser = ( email,uname) =>{
         })
     })
 }
-grocerydb.userRegister = (email,uName,uPass) =>{ //h
+grocerydb.userRegister = (email,uName,uPass,town,regToken,expireToken) =>{ //h
     return new Promise ((resolve,reject)=>{
-        pool.query('INSERT INTO users(uid,email,uname,password) VALUES(?,?,?,?) ',['0',email,uName,uPass], (err,results)=>{
+        pool.query('INSERT INTO users(uid,email,uname,password,town,regToken,expireToken) VALUES(?,?,?,?,?,?,?) ',['0',email,uName,uPass,town,regToken,expireToken], (err,results)=>{
             if (err) {
                 return reject(err);
             }
@@ -40,9 +40,34 @@ grocerydb.userRegister = (email,uName,uPass) =>{ //h
         })
     })
 }
+grocerydb.confirmEmail = (token) =>{
+
+    const now = Date.now();
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT id,email,regToken,expireToken FROM users WHERE regToken=? AND expireToken > ? LIMIT 1',[token,now] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }else{
+                if (results.length > 0 ) {
+                    pool.query('UPDATE users SET isConfirm=?,regToken=?,expireToken=? WHERE id=?',[1,null,null,results[0].id] ,(err,results)=>{
+                        if (err) {
+                            return reject(err);
+                        }
+                        return resolve(true);
+                    })
+                } else {
+                    return resolve(false);
+                }
+            }
+           // }
+            //return resolve(results);
+        })
+    })
+
+}
 grocerydb.userLogin = (uName,uPass) =>{
     return new Promise ((resolve,reject)=>{
-        pool.query('SELECT uname,password,role FROM users WHERE uname=? LIMIT 1',[uName],async (err,results)=>{
+        pool.query('SELECT uname,password,role,isConfirm FROM users WHERE uname=? LIMIT 1',[uName],async (err,results)=>{
             if(err){
                 status = 'No UserName Or Email found'
                 return reject(status)
@@ -50,7 +75,10 @@ grocerydb.userLogin = (uName,uPass) =>{
                 if (results.length == 0) {
                     status = 'No UserName Or Email found'
                     return reject(status)
-                } else {
+                }else if(results[0].isConfirm == 0 ){
+                    status = 'verify your account'
+                    return reject(status)
+                }else {
                     const isMatch =await bcrypt.compare(uPass,results[0].password);
 
                     if (isMatch == true) {
@@ -421,8 +449,9 @@ grocerydb.productsOrder = (orders) =>{ // shopping-cart
                 
                 var timpstamp = moment().format('YYYY-MM-DD H:m:sZ');
                 
+                const userId = orders[0].userId;
 
-                pool.query('UPDATE orders SET orderTrackId=?,totPrice=?,totItemsType=?,discount=?,date=?,status=? WHERE sid=?',[new_id,orders[0].cost,(orders.length-1),0,timpstamp,'pending',inserted_id], (err,results)=>{
+                pool.query('UPDATE orders SET orderTrackId=?,userId=?,totPrice=?,totItemsType=?,discount=?,date=?,status=? WHERE sid=?',[new_id,userId,orders[0].cost,(orders.length-1),0,timpstamp,'pending',inserted_id], (err,results)=>{
                     if (err) {
                         return reject(err)
                     }else{
@@ -430,7 +459,7 @@ grocerydb.productsOrder = (orders) =>{ // shopping-cart
                             const prod = orders[i]
 
                             try {
-                                pool.query('INSERT INTO products_sold( trackId,productId,uid,amount,date,price,status) VALUES(?,?,?,?,?,?,?)',[new_id,prod.id,'chana',prod.Quantity,timpstamp,prod.price,'pending'], (err,results)=>{
+                                pool.query('INSERT INTO products_sold( trackId,productId,uid,amount,date,price,status) VALUES(?,?,?,?,?,?,?)',[new_id,prod.id,userId,prod.Quantity,timpstamp,prod.price,'pending'], (err,results)=>{
                                     if (err) {
                                         return reject(err);
                                     }
