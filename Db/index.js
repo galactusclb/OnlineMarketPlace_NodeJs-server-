@@ -30,6 +30,21 @@ grocerydb.findOneUser = ( email,uname) =>{
         })
     })
 }
+grocerydb.findOneUserById = ( id) =>{
+    return new Promise((resolve,reject)=>{
+        pool.query('SELECT email,uname FROM users WHERE id=? LIMIT 1',[id], (err,results)=>{
+            if (err) {
+                return reject(err)
+            }else{
+                if (results.length > 0 ) {
+                    return resolve(true);
+                } else {
+                    return resolve(false);
+                }
+            }
+        })
+    })
+}
 grocerydb.userRegister = (email,uName,uPass,town,regToken,expireToken) =>{ //h
     return new Promise ((resolve,reject)=>{
         pool.query('INSERT INTO users(uid,email,uname,password,town,regToken,expireToken) VALUES(?,?,?,?,?,?,?) ',['0',email,uName,uPass,town,regToken,expireToken], (err,results)=>{
@@ -38,6 +53,25 @@ grocerydb.userRegister = (email,uName,uPass,town,regToken,expireToken) =>{ //h
             }
             return resolve(results);
         })
+
+
+        // pool.query('INSERT INTO users(regDate) VALUES(?) ',[null], (err,results)=>{
+        //     if (err) {
+        //         return reject(err);
+        //     }else{
+        //         function paddy(num, padlen, padchar) {
+        //             var pad_char = typeof padchar !== 'undefined' ? padchar : '0';
+        //             var pad = new Array(1 + padlen).join(pad_char);
+        //             return (pad + num).slice(-pad.length);
+        //         }
+        //         const inserted_id = results.insertId;
+        //         var fu = paddy(inserted_id, 10);
+
+        //         const new_id = "-"+fu;
+
+        //         return resolve(results);
+        //     }
+        // })
     })
 }
 grocerydb.confirmEmail = (token) =>{
@@ -67,7 +101,7 @@ grocerydb.confirmEmail = (token) =>{
 }
 grocerydb.userLogin = (uName,uPass) =>{
     return new Promise ((resolve,reject)=>{
-        pool.query('SELECT uname,password,role,isConfirm FROM users WHERE uname=? LIMIT 1',[uName],async (err,results)=>{
+        pool.query('SELECT id,uname,password,role,isConfirm FROM users WHERE uname=? LIMIT 1',[uName],async (err,results)=>{
             if(err){
                 status = 'No UserName Or Email found'
                 return reject(status)
@@ -84,6 +118,7 @@ grocerydb.userLogin = (uName,uPass) =>{
                     if (isMatch == true) {
                         var tt = []
                         ress =  {
+                            id: results[0].id,
                             userName: results[0].uname,
                             role: results[0].role
                         } 
@@ -99,6 +134,79 @@ grocerydb.userLogin = (uName,uPass) =>{
         })
     })
 }
+
+grocerydb.getBasicUserDetailsByUid = (id) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('SELECT fname,lname,uname,email,town,address,phone FROM users WHERE id=? LIMIT 1',[id],async (err,results)=>{
+            if(err){
+                status = 'no user found'
+                return reject(status)
+            }else{
+                if (results.length == 0) {
+                    status = 'no user found'
+                    return reject(status)
+                }else {
+                    return resolve(results)
+                }
+            }
+        })
+    })
+}
+
+grocerydb.updateUserProfile = (id,fname,lname,uname,email,town,address,phone) =>{
+    console.log(id)
+    return new Promise ((resolve, reject)=>{
+        pool.query('UPDATE users SET fname=?,lname=?,uname=?,email=?,town=?,address=?,phone=? WHERE id=?',[fname,lname,uname,email,town,address,phone,id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+
+}
+grocerydb.updatePassword = (id,cpass,npass) =>{
+    return new Promise ((resolve,reject)=>{
+        pool.query('SELECT id,password,isConfirm FROM users WHERE id=? LIMIT 1',[id],async (err,results)=>{
+            if(err){
+                status = 'No UserName Or Email found'
+                return reject(status)
+            }else{
+                if (results.length == 0) {
+                    status = 'No UserName Or Email found'
+                    return reject(status)
+                }else if(results[0].isConfirm == 0 ){
+                    status = 'verify your account'
+                    return reject(status)
+                }else {
+                    const isMatch =await bcrypt.compare(cpass,results[0].password);
+
+                    if (isMatch == true) {
+                        const saltRound = 10;
+                        const hashpassword = await bcrypt.hash(npass, saltRound );
+                        pool.query('UPDATE users SET password=? WHERE id=?',[hashpassword,id] ,(err,results)=>{
+                            if (err) {
+                                return reject(err);
+                            }
+                            return resolve(results);
+                        })
+                    }else{
+                        status = 'Password is wrong'
+                        return reject(status)
+                    }
+                }
+            }
+        })
+    })
+}
+
+
+
+
+
+
+
+
 
 
 
@@ -203,6 +311,34 @@ grocerydb.getItems = (category) =>{
         })
     })
 }
+
+grocerydb.getItemsByIds = (idList) =>{ // there is one security issue in query
+
+    var num = '';
+    var ids = '';
+
+    for (let i = 0; i < idList.length; i++) {
+        if (i<idList.length-1) {
+            num += '?,';
+            ids += "'"+idList[i]+"',";
+        }else{
+            num += '?';
+            ids += "'"+idList[i]+"'";
+        }
+    }
+
+    // console.log(num)
+    // console.log(ids)
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT id,price,discount FROM products WHERE id IN ('+ids+')' ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+
 grocerydb.getProductDetailsById = (id) =>{ //product-view component
     return new Promise ((resolve, reject)=>{
         pool.query('SELECT * FROM products WHERE id = ?',[id] ,(err,results)=>{
@@ -450,8 +586,10 @@ grocerydb.productsOrder = (orders) =>{ // shopping-cart
                 var timpstamp = moment().format('YYYY-MM-DD H:m:sZ');
                 
                 const userId = orders[0].userId;
+                const totCost = orders[0].cost;
+                console.log('totCost : '+ totCost);
 
-                pool.query('UPDATE orders SET orderTrackId=?,userId=?,totPrice=?,totItemsType=?,discount=?,date=?,status=? WHERE sid=?',[new_id,userId,orders[0].cost,(orders.length-1),0,timpstamp,'pending',inserted_id], (err,results)=>{
+                pool.query('UPDATE orders SET orderTrackId=?,userId=?,totPrice=?,totItemsType=?,discount=?,date=?,status=? WHERE sid=?',[new_id,userId,totCost,(orders.length-1),0,timpstamp,'pending',inserted_id], (err,results)=>{
                     if (err) {
                         return reject(err)
                     }else{
@@ -526,6 +664,16 @@ grocerydb.getOrderList = () =>{
 grocerydb.getOrderByTrackId = (id) =>{
     return new Promise ((resolve, reject)=>{
         pool.query('SELECT * FROM orders WHERE orderTrackId=?',[id] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+grocerydb.getOrderByUserId = (id) =>{
+    return new Promise ((resolve, reject)=>{
+        pool.query('SELECT * FROM orders WHERE userId=?',[id] ,(err,results)=>{
             if (err) {
                 return reject(err);
             }

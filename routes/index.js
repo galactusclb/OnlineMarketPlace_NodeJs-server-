@@ -11,6 +11,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer')
 const sendgridTranspoter = require('nodemailer-sendgrid-transport')
+const unescape = require('../extra/unescape-middleware')
 
 const sendGridAPiKey = "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";
 const fromEmail = "chanakabit123@gmail.com";
@@ -73,7 +74,7 @@ function verifyToken(req,res,next){
         // if (!payload) {
         //     return res.status(401).send("Unothorized request-3")
         // }
-        req.userName = payload.subject
+        req.loggedUserDetails = payload.subject // this can use in next function
         next();
     } catch (error) {
         return res.status(401).send("Unothorized request-4")
@@ -196,7 +197,7 @@ router.post('/login', async ( req,res,next)=>{
         }
         else{
             let payload = { subject: result }
-            let jwtToken = jwt.sign(payload, 'mysecretKey', { expiresIn : 600 })
+            let jwtToken = jwt.sign(payload, 'mysecretKey', { expiresIn : "1h" })
             res.status(200).send({jwtToken});
         }
     } catch (error) {
@@ -205,7 +206,105 @@ router.post('/login', async ( req,res,next)=>{
     } 
 })
 
+router.get('/getbasicuserdetailsbyuid',verifyToken,async ( req,res,next)=>{           
+    try{
+        let results = await db.getBasicUserDetailsByUid(req.loggedUserDetails[0].id)
+        res.json(results);
+    } catch (error) {
+        console.log(e);
+        res.sendStatus(500)
+    }                        
+})
 
+
+router.post('/updateprofile',
+    [   check('email')
+            .not().isEmpty().withMessage('email is empty').isEmail().withMessage('Email is not valid')
+            .trim().escape(),
+        check('fname')
+            .not().isEmpty().withMessage('first name is empty')
+            .trim().escape(),
+        check('lname')
+            .not().isEmpty().withMessage('last name is empty')
+            .trim().escape(),
+        check('uname')
+            .not().isEmpty().withMessage('username is empty')
+            .trim().escape(),
+        check('town')
+            .not().isEmpty().withMessage('select city/town')
+            .trim().escape(),
+        check('address')
+            .not().isEmpty().withMessage('address is empty')
+            .trim().escape(),
+        check('phone')
+            .not().isEmpty().withMessage('select city/town')
+            .isLength({ min: 10, max:10 }).withMessage('enter valid phone number')
+            .isNumeric().withMessage('enter valid phone number')
+            .trim().escape(),
+    ],
+    verifyToken,
+     async ( req,res,next)=>{
+            console.log(req.body)
+            // console.log(req.loggedUserDetails)
+            // console.log(req.loggedUserDetails[0].id)
+            const errors = validationResult(req)
+            if (!errors.isEmpty()) {
+                console.log(errors);
+                res.status(422).send(errors);
+            }else{
+                try{
+                    //await new Promise(resolve => setTimeout(resolve, 10000));
+
+                    let results = await db.updateUserProfile(req.loggedUserDetails[0].id,req.body.fname,req.body.lname,req.body.uname,req.body.email,req.body.town,req.body.address,req.body.phone)
+                    res.json(results);
+                } catch (error) {
+                    console.log(e);
+                    res.sendStatus(500)
+                }               
+            }     
+})
+
+router.post('/updatepassword',
+    [
+        check('cPass')
+            .not().isEmpty().withMessage('current password is empty')
+            .trim().escape(),
+        check('nPass')
+            .not().isEmpty().withMessage('new password is empty')
+            .trim().escape(),
+        check('cnPass')
+            .not().isEmpty().withMessage('confirm new password is empty')
+            .trim().escape()
+    ],
+    verifyToken,
+     async ( req,res,next)=>{
+            console.log(req.body)
+            // console.log(req.loggedUserDetails)
+            // console.log(req.loggedUserDetails[0].id)
+            const errors = validationResult(req)
+
+            if (!errors.isEmpty()) {
+                console.log(errors);
+                res.status(422).send(errors);
+            }else{
+                let savedUser =  await db.findOneUserById(req.loggedUserDetails[0].id)
+
+                if (!savedUser) {
+                    return res.status(422).json("no user found")
+                }else{
+                    try{
+                        let results = await db.updatePassword(req.loggedUserDetails[0].id,req.body.cPass,req.body.nPass)
+                        res.status(200).json(results);
+                    } catch (error) {
+                        console.log(error);
+                        const err = []
+                        err['error']['errors'].push({msg : error})
+                        res.status(422).send(err);
+                        //res.status(500).json(error);
+                    } 
+                }            
+            }     
+})
 
 
 
@@ -222,7 +321,7 @@ router.get('/getMainCategoriesList', async (req,res,next)=>{ //home component
     try {
         let results = await db.getMainCategoriesList();
         res.json(results);
-        console.log(results)
+        //console.log(results)
     } catch (error) {
         console.log(e);
         res.sendStatus(500)
@@ -243,7 +342,7 @@ router.get('/getMainCategoryProducts', async (req,res,next)=>{ //home component
     try {
         let results = await db.getMainCategoryProducts(req.query.category);
         res.json(results);
-        console.log(results)
+        //console.log(results)
     } catch (error) {
         console.log(e);
         res.sendStatus(500)
@@ -270,6 +369,16 @@ router.get('/getItems', async (req,res,next)=>{ //shopping component
         res.sendStatus(500)
     }
 })
+router.get('/getitemsbyids', async (req,res,next)=>{ //shopping component
+      try {
+          //await new Promise(resolve => setTimeout(resolve, 10000));
+          let results = await db.getItemsByIds(req.query.idList);
+          res.json(results);
+      } catch (error) {
+          console.log(error);
+          res.sendStatus(500)
+      }
+  })
 
 router.get('/getProductDetails', async (req,res,next)=>{  //productEdit component
     try {
@@ -284,7 +393,7 @@ router.get('/mainSearchProducts', async (req,res,next)=>{ //home component
     try {
         let results = await db.mainSearchProducts(req.query.details);
         res.json(results);
-        console.log(results)
+        //console.log(results)
     } catch (error) {
         console.log(error);
         res.sendStatus(500)
@@ -461,6 +570,7 @@ router.post('/removeProductFromHome', async (req,res,next)=>{ //edit-home compon
 
 
 router.post('/productsOrder', async (req, res,next)=>{ //shopping-cart
+    console.log(req.body.params.orders)
     
     // try {
     //     let results = await db.productsOrderAndReduce(req.body.params.orders);
@@ -517,6 +627,15 @@ router.get('/getOrderList',async (req,res,next)=>{ //order-request component
 router.get('/getOrderByTrackId',async (req,res,next)=>{ //order-details component
     try {
         let results = await db.getOrderByTrackId(req.query.trackId);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+})
+router.get('/getOrderByUserId',async (req,res,next)=>{ //user order component
+    try {
+        let results = await db.getOrderByUserId(req.query.UserId);
         res.status(200).json(results)
     } catch (error) {
         console.log(error);
