@@ -330,7 +330,8 @@ grocerydb.getItemsByIds = (idList) =>{ // there is one security issue in query
     // console.log(num)
     // console.log(ids)
     return new Promise ((resolve, reject)=>{
-        pool.query('SELECT id,price,discount FROM products WHERE id IN ('+ids+')' ,(err,results)=>{
+
+        pool.query('SELECT pd1.id,pd1.price,(SELECT pd2.discount FROM products pd2 WHERE discountOn = 1 AND pd1.id = pd2.id ) AS discount FROM products pd1 WHERE pd1.id IN ('+ids+')' ,(err,results)=>{
             if (err) {
                 return reject(err);
             }
@@ -654,6 +655,38 @@ grocerydb.reduceItemAmountAfterOrder = (orders) =>{ // shopping-cart
 grocerydb.getOrderList = () =>{
     return new Promise ((resolve, reject)=>{
         pool.query('SELECT * FROM orders',[''] ,(err,results)=>{
+            if (err) {
+                return reject(err);
+            }
+            return resolve(results);
+        })
+    })
+}
+
+grocerydb.searchOrderReqTable = (status,searchInput) =>{
+    return new Promise ((resolve, reject)=>{
+
+        var where = '';
+        param = []
+
+        if (status && ( searchInput == '' || searchInput == null)) {
+            where = 'WHERE status = ? '
+            param = [status]
+        }else if( searchInput && (status == '' || status == null)){
+            var variable = "%"+searchInput+"%";
+            //name LIKE "%'+title+'%" OR tags LIKE "%'+title+'%"
+            where = 'WHERE ( orderTrackId LIKE ? ) OR ( userId LIKE ? )'
+            param = [variable,variable]
+        }else if (status && searchInput) {
+            var variable = "%"+searchInput+"%";
+            where = 'WHERE status = ? AND ( orderTrackId LIKE ? OR userId LIKE ? )'
+            param = [status,variable,variable]
+        }else{
+            where = '';
+            param = []
+        }
+
+        pool.query('SELECT * FROM orders '+ where,param ,(err,results)=>{
             if (err) {
                 return reject(err);
             }

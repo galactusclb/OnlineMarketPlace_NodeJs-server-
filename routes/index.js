@@ -693,7 +693,22 @@ router.get('/getOrderDetailsByTrackId', (req,res,next)=>{ //orderDetails compone
         })
 })
 
-//admin pges
+//**********************************************************************************************************************//
+// ************************************************ admin pges ********************************************************//
+//********************************************************************************************************************//
+
+
+
+router.get('/searchorderreqtable',async (req,res,next)=>{ //order-request component
+    console.log(req.query)
+    try {
+        let results = await db.searchOrderReqTable(req.query.status,req.query.searchInput);
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500);
+    }
+})
 router.post('/orderStatusChange', async (req,res,next)=>{ //orderRequests component
     //console.log(req.body.params)
     try {
