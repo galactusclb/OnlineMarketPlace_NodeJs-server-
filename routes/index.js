@@ -654,7 +654,6 @@ router.get('/getOrderByUserId',async (req,res,next)=>{ //user order component
 
 
 router.get('/getOrderDetailsByTrackId', (req,res,next)=>{ //orderDetails component
-    console.log("track id : " + req.query.trackId)
     async1.parallel([
             async function(callback){
                try {
