@@ -7,24 +7,24 @@ var async1 = require('async');
 require('dotenv').config();
 
 // production
-// const pool = mysql.createPool({
-// 	user: process.env.PROD_DB_USER,
-// 	password: process.env.PROD_DB_PASSWORD,
-// 	host: process.env.PROD_DB_HOST,
-// 	database: process.env.PROD_DB_NAME,
-// 	port: process.env.DB_PORT,
-// 	multipleStatements: true,
-// });
-
-// localhost
 const pool = mysql.createPool({
-	user: process.env.DB_USER,
-	password: process.env.DB_PASSWORD,
-	host: process.env.DB_HOST,
+	user: process.env.PROD_DB_USER,
+	password: process.env.PROD_DB_PASSWORD,
+	host: process.env.PROD_DB_HOST,
+	database: process.env.PROD_DB_NAME,
 	port: process.env.DB_PORT,
-	database: process.env.DB_NAME,
 	multipleStatements: true,
 });
+
+// localhost
+// const pool = mysql.createPool({
+// 	user: process.env.DB_USER,
+// 	password: process.env.DB_PASSWORD,
+// 	host: process.env.DB_HOST,
+// 	port: process.env.DB_PORT,
+// 	database: process.env.DB_NAME,
+// 	multipleStatements: true,
+// });
 
 let grocerydb = {};
 
