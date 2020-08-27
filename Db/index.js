@@ -1,6 +1,6 @@
 const mysql = require('mysql');
 const moment = require('moment');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 var async1 = require('async');
 
